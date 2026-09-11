@@ -38,6 +38,7 @@ import {
   cancelCurrentInProgressMeasurement, updateMeasurementScales,
   rebuildClippingGrid, applyClipWidgetVisibility
 } from './tools.js';
+import { initPenInput } from './pen-input.js';
 import { onPointerDown, clearSelection, updatePropertiesPanel, addSelectionOutline, setupGumballHelper, clearGumballHelper, ensureOriginalTransform } from './selection.js';
 import { buildClippingCap, destroyClippingCap, setClippingCapEnabled, setClippingCapColor, updateClippingCapPose } from './clip-cap.js';
 
@@ -411,6 +412,11 @@ function init() {
 
   // 2-Point Perspective drag interception (no-op until twoPointActive=true)
   installTwoPointDragHandler();
+
+  // Stylus-only filter. Must come after the canvas is in #canvas-container and
+  // after OrbitControls is bound to it — it intercepts in the container's
+  // capture phase, upstream of every listener on the canvas itself.
+  initPenInput();
 
   S.renderer.localClippingEnabled = true;
   S.scene.add(S.measurementGroup);

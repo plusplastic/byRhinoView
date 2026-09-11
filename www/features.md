@@ -47,6 +47,7 @@ Customize how your models are displayed using professional viewport modes:
 ### 3. 📐 Professional Analysis Tools / 정밀 분석 및 검증 도구
 * **Distance Measurement (거리 측정):** Interactive distance tool with high-accuracy **vertex snapping (Snap to Vertex)** on loaded meshes.
 * **Angle Measurement (각도 측정):** Measures precise angles between three custom points with dynamic vertex snapping.
+* **Stylus-Only Measuring (펜 전용 측정):** While a measurement tool is active, a single finger or a resting palm is ignored, so an Apple Pencil or other stylus can snap to a vertex without the hand orbiting the view. Two-finger zoom and pan still work, except while the stylus is actually in use. Arms itself the first time a stylus is used; toggle it off in the Measurements panel to measure by touch.
 * **Measurement History List (측정 기록 내역):** Tracks and displays all measurements in a beautiful overlay table with custom units and dynamic deletion/clear-all options.
 * **Clipping Plane (클리핑 단면):** 3-Axis (X, Y, Z) sectioning tools. Slide the section plane in real time, **Flip** the clipping direction, and reset instantly to examine internal components.
 * **Section Cap Fill (단면 채움):** Fills the cut cross-section of closed solids at the clipping plane with a solid color, so sectioned models read as filled surfaces rather than hollow shells.
