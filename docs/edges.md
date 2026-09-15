@@ -9,7 +9,7 @@ model, and what the **Edge Angle** slider actually does.
 | | Exact edges | Computed edges |
 |---|---|---|
 | **Come from** | Rhino's own surface boundaries | The triangle mesh |
-| **Used for** | Breps, extrusions, polysurfaces | SubD, meshes from STL / 3MF / GLB / STEP |
+| **Used for** | Breps, extrusions, polysurfaces | SubD, meshes, anything from STL / 3MF / GLB / STEP |
 | **Accuracy** | Follows the true curve at any zoom | Follows the tessellation |
 | **Edge Angle slider** | Filters them (exported files only) | Decides which ones exist |
 
@@ -25,14 +25,16 @@ A single model can use both at once. Each object gets whichever applies to it.
 
 ## Where your edges come from
 
-**Exported from Rhino (`.rhv`)** — Every Brep carries its exact edges, measured by the
-export plug-in. This is the most accurate result and the fastest to open, because the
-viewer has no edges to calculate.
+**A `.3dm` opened directly** — The viewer reads the exact edges out of the file while it
+loads, straight from Rhino's surface topology. One limitation: the browser cannot measure
+the angle at each edge, so the Edge Angle slider is greyed out (see below).
 
-**A `.3dm` opened directly** — The viewer reads the exact edges out of the file itself
-while it loads. The result matches an exported file, with one difference: the browser
-cannot measure the angle at each edge, so the Edge Angle slider is greyed out (see
-below).
+**Exported from Rhino with the byRhinoViewExport plug-in (`.rhv`)** — Only if **Save
+edges from Brep topology** was ticked in the export dialog. That option is **off by
+default**. With it on you get the best result there is: exact edges that the viewer does
+not have to calculate, each carrying the angle the Edge Angle slider filters by. With it
+off the `.rhv` carries no edges at all and the viewer computes them from the mesh, the
+same as it would for an STL.
 
 **Everything else (STL, 3MF, GLB, STEP/IGES)** — There are no surfaces in these formats,
 so every edge is computed from the mesh using the Edge Angle threshold.
@@ -58,8 +60,8 @@ you drag.
 
 **Greyed out.** The slider is disabled when nothing in the model responds to it — most
 commonly a `.3dm` of Breps opened in the viewer, where every edge is exact but has no
-angle recorded. Hover it for the reason. To get the slider back on that model, export it
-from Rhino as a `.rhv`.
+angle recorded. Hover it for the reason. To get the slider working on that model, export
+it as a `.rhv` with **Save edges from Brep topology** ticked.
 
 ## Large models
 
@@ -70,14 +72,16 @@ Turn **Edges** back on under Settings → Visibility whenever you want them. The
 calculation runs then, with a progress indicator, and the result stays for the rest of
 the session. Objects that already carried exact edges appear immediately.
 
-This is also why an exported `.rhv` of a large model opens with its edges already
-showing: nothing needs to be calculated.
+This is also why a `.rhv` exported with **Save edges from Brep topology** opens with its
+edges already showing however large the model is: nothing needs to be calculated.
 
 ## Quick answers
 
-**My edges look different after exporting the same model.** Expected. An exported file
-carries the angle of every edge, so the Edge Angle slider can thin them out; the same
-model opened as a `.3dm` shows every boundary.
+**My edges look different after exporting the same model.** Check whether **Save edges
+from Brep topology** was ticked. With it on, the file carries the angle of every edge and
+the Edge Angle slider can thin them out. With it off, the `.rhv` has no edges of its own
+and they are rebuilt from the mesh, which looks coarser than the same model opened as a
+`.3dm`.
 
 **One object has no outline and the rest do.** It is probably a Rhino Mesh, or a SubD
 whose surface is too smooth for the current Edge Angle. Check the object type in the
