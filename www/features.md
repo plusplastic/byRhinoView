@@ -41,6 +41,7 @@ Customize how your models are displayed using professional viewport modes:
 * **Arctic (아키텍처/앰비언트 오클루전):** Premium architectural mode rendering with smooth, soft ambient occlusion shadows, highlighting depth and form beautifully without textures.
 * **Rendered (렌더링):** Full material support, realistic shadows, and environmental reflections.
 * **Technical Sketch (기술적 스케치):** Artistic technical draft styling with outlines and hidden line silhouettes.
+* **Edge Display (모서리 표시):** Outlines come from Rhino's own surface boundaries where the file has them, and are computed from the mesh where it does not. The **Edge Angle** slider sets how sharp an edge must be to show. See [How Edges Work](../docs/edges.md).
 
 ---
 

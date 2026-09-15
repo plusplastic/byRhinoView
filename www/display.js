@@ -987,6 +987,68 @@ export function addEdges(mesh, thresholdAngle) {
   mesh.add(line);
 }
 
+// An edge object never belongs to an annotation or to a measurement: building
+// EdgesGeometry on every measurement sphere is wasted work, and it also trips a
+// three.js side effect where opaque depthTest:false meshes stop rendering after
+// the applyDisplayMode() that follows — see issue history.
+function _isEdgeExcludedByParent(child) {
+  let p = child.parent;
+  while (p) {
+    if (p.name === 'annotations-group' || p === S.measurementGroup) return true;
+    p = p.parent;
+  }
+  return false;
+}
+
+/**
+ * Every mesh that would get dihedral edges but has none yet.
+ *
+ * The edge-overlay toggle needs this because the edges it is asked to show may
+ * never have been built. A heavy model skips extraction at load and the toast
+ * points the user straight at that toggle; a .3dm whose objects the Brep sampler
+ * could not cover (mesh-derived geometry, or Breps past the sampling budget)
+ * arrives in the same state. Flipping `.visible` alone then lights up only the
+ * objects whose edges came from the file — which reads as "edges work for
+ * exported models and not for opened ones".
+ *
+ * Separate from recreateAllEdges, which discards and re-extracts every dihedral
+ * edge because the threshold moved. Here the threshold has not moved, so anything
+ * already built is already correct and must be left alone — including the exact
+ * edges the file supplied.
+ */
+export function findMeshesNeedingEdges() {
+  const out = [];
+  if (!S.scene) return out;
+  S.scene.traverse(child => {
+    if (!child.isMesh || child.isLine) return;
+    if (['rhino-edges', 'rhino-outline', 'selection-outline', 'ground-plane'].includes(child.name)) return;
+    if (!child.geometry) return;
+    if (!isEdgeEligible(child)) return;
+    if (child.children?.some(c => c.name === 'rhino-edges')) return;
+    if (_isEdgeExcludedByParent(child)) return;
+    out.push(child);
+  });
+  return out;
+}
+
+// Triangles the meshes above would have to walk — what decides whether the caller
+// owes the user a progress indicator before it blocks the thread.
+export function countTriangles(meshes) {
+  let tris = 0;
+  for (const m of meshes) {
+    const g = m.geometry;
+    if (!g) continue;
+    if (g.index) tris += g.index.count / 3;
+    else if (g.attributes?.position) tris += g.attributes.position.count / 3;
+  }
+  return Math.round(tris);
+}
+
+export function buildEdgesFor(meshes) {
+  const angle = S.edgeThresholdAngle ?? 30;
+  for (const m of meshes) addEdges(m, angle);
+}
+
 export function recreateAllEdges(thresholdAngle) {
   if (thresholdAngle !== undefined) {
     S.edgeThresholdAngle = thresholdAngle;
@@ -1004,20 +1066,7 @@ export function recreateAllEdges(thresholdAngle) {
       // strip edges off an object that will not get them back.
       if (!isEdgeEligible(child)) return;
 
-      // Skip if child is part of annotations OR the measurement group.
-      // Building EdgesGeometry on every measurement sphere on every slider
-      // change is wasteful and triggers a side effect in three.js where
-      // opaque depthTest:false meshes stop rendering after the subsequent
-      // applyDisplayMode() — see issue history.
-      let skip = false;
-      let p = child.parent;
-      while (p) {
-        if (p.name === 'annotations-group' || p === S.measurementGroup) {
-          skip = true; break;
-        }
-        p = p.parent;
-      }
-      if (skip) return;
+      if (_isEdgeExcludedByParent(child)) return;
 
       const oldEdges = child.getObjectByName('rhino-edges');
       // Edges the file supplied came from Brep topology: exact, with no dihedral

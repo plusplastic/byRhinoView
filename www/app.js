@@ -19,7 +19,7 @@ import { S } from './state.js';
 import { updateSliderFill, updateAllSliderFills, updateSelectIcon, showLoading, hideLoading, bindSliderDblClickInput, beginSave } from './helpers.js';
 import { setupLights, updateSunLight, updateShadowCasting, addGroundPlane, removeGroundPlane, computeVisibleBoundingBox } from './lighting.js';
 import { switchToOrtho, switchToPersp, switchToTwoPoint, apply2PointConstraints, installTwoPointDragHandler, setViewPreset, setWalkthroughMode, triggerCameraTransition, fitCameraToBox, fitCameraToObject, fitCameraToSelected, saveCustomView, renderNamedViewsUI, updateAdaptiveClipping } from './camera.js';
-import { applySceneBackground, applyFileBackground, applyDisplayMode, applyLayerColorsToModel, recreateAllEdges, setEdgeAngleUniform } from './display.js';
+import { applySceneBackground, applyFileBackground, applyDisplayMode, applyLayerColorsToModel, recreateAllEdges, setEdgeAngleUniform, findMeshesNeedingEdges, countTriangles, buildEdgesFor } from './display.js';
 import { renderLayerUI, updateLayerVisibility } from './layers.js';
 import { createAnnotationSprites } from './annotations.js';
 import { saveSession, loadSession, exportPackage } from './session.js';
@@ -1371,9 +1371,37 @@ function bindUI() {
   };
 
   document.getElementById('chk-edges-panel').addEventListener('change', e => {
-    updateModeSetting('edges', e.target.checked);
-    updateModeSetting('curves', e.target.checked); // curves follow edges check state
-    applyDisplayMode();
+    const on = e.target.checked;
+    updateModeSetting('edges', on);
+    updateModeSetting('curves', on); // curves follow edges check state
+
+    // Turning the overlay ON has to be able to CREATE edges, not only unhide
+    // them. Showing them used to be a pure visibility flip, which works only
+    // where the edge objects already exist — a .rhv carries them, so exported
+    // models looked fine, while a model whose edges have to be extracted showed
+    // nothing at all. A heavy model is the sharpest case: it defers extraction at
+    // load and the toast tells the user to switch edges on here, and that switch
+    // then did nothing.
+    const pending = on ? findMeshesNeedingEdges() : [];
+    if (pending.length === 0) { applyDisplayMode(); return; }
+
+    // Extraction is O(triangles) and blocks the thread, so anything big enough to
+    // be felt gets the loading overlay — and two frames to actually paint it
+    // before the main thread goes away.
+    const finish = () => {
+      try { buildEdgesFor(pending); } finally { hideLoading(); }
+      // The load-time decision has been overridden by hand; a session save must
+      // not keep forcing edges back off (see session.js restore).
+      S.edgesDeferred = false;
+      S.deferredStats = null;
+      applyDisplayMode();
+    };
+    if (countTriangles(pending) > 100000) {
+      showLoading(t('msg.edges_building'));
+      requestAnimationFrame(() => requestAnimationFrame(finish));
+    } else {
+      finish();
+    }
   });
   document.getElementById('chk-shadows-panel').addEventListener('change', e => {
     S.shadowsEnabled = e.target.checked;
