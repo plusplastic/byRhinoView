@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import { S } from './state.js';
+
+// The name Rhino3dmLoader gives the material it invents for an object that has
+// none — three.js's Loader.DEFAULT_MATERIAL_NAME, inlined so this module does not
+// depend on a base class it otherwise never touches.
+const DEFAULT_MATERIAL_NAME = '__DEFAULT';
 import { applyDisplayMode, applyFileBackground, applyLayerColorsToModel,
          addEdges, isEdgeEligible, applyEdgeAngleFilter, fixMaterialTransparency,
          clearTechnicalOutlines, clearSharedMaterials } from './display.js';
@@ -839,9 +844,53 @@ export async function preprocess3dm(file, skipLayerParse) {
       } catch (fe) { console.warn('[pre] file info err:', fe); }
 
       S.parsedLayers = [];
+      S.parsedMaterials = null;
       try {
         // ── Build material lookup table from doc.materials() ─────────────────
         const matLookup = {};
+        // Rhino's simple material types whose surface finish is a property of the
+        // TYPE rather than of any setting on the material.
+        //
+        // Plaster is the clearest case: in Rhino it exposes a single parameter,
+        // colour. There is no gloss control to read, because plaster is matte by
+        // definition — so the finish has to come from knowing it is plaster. The
+        // ON_Material it writes carries reflectionGlossiness 0, shine 0 and an empty
+        // PBR view, which says nothing at all, and reading that as roughness gave a
+        // mirror-polished wall.
+        //
+        // Deliberately only the type this was verified against. The other rdk-*
+        // types (paint, plastic, metal, gem) each have a defensible finish too, but
+        // picking numbers for them without a file to check against is guessing, and
+        // a wrong guess here is silent.
+        const RDK_TYPE_FINISH = {
+          'rdk-plaster-material': { roughness: 1.0, metalness: 0.0 },
+        };
+        // instance-id → { type, params }, read from the document's RDK content.
+        //
+        // This is the only place a material's real settings live. Per-material rdkXml()
+        // comes back empty, and the ON_Material carries a *simulated* Blinn-Phong
+        // approximation whose fields do not line up with the sliders in Rhino's editor.
+        // Ids are upper-case here and lower-case on the ON_Material, hence the
+        // normalisation.
+        const rdkById = new Map();
+        try {
+          const rdkXml = typeof doc.rdkXml === 'function' ? doc.rdkXml() : null;
+          if (typeof rdkXml === 'string' && rdkXml) {
+            const re = /<material\s+type-name="([^"]*)"[^>]*instance-id="([^"]*)"[^>]*>([\s\S]*?)<\/material>/g;
+            let hit;
+            while ((hit = re.exec(rdkXml))) {
+              const params = {};
+              const block = hit[3].match(/<parameters>([\s\S]*?)<\/parameters>/);
+              if (block) {
+                for (const p of block[1].matchAll(/<([a-z0-9-]+)\s+type="double">([^<]*)<\/\1>/g)) {
+                  const v = parseFloat(p[2]);
+                  if (isFinite(v)) params[p[1]] = v;
+                }
+              }
+              rdkById.set(hit[2].toLowerCase(), { type: hit[1], params });
+            }
+          }
+        } catch (re) { console.warn('[pre] RDK material parse err:', re); }
         try {
           const mats = doc.materials();
           if (mats) {
@@ -849,32 +898,52 @@ export async function preprocess3dm(file, skipLayerParse) {
               const m = mats.get(mi);
               if (!m) continue;
 
+              let rdk = null;
+              try {
+                const iid = m.renderMaterialInstanceId;
+                if (iid) rdk = rdkById.get(String(iid).toLowerCase()) ?? null;
+              } catch {}
+              const rdkFinish = rdk ? (RDK_TYPE_FINISH[rdk.type] ?? null) : null;
+
               // Check if physicallyBased is supported
-              let isPbrSupported = false;
               let pbr = null;
               try {
                 const pb = m.physicallyBased();
-                if (pb && pb.supported) {
-                  isPbrSupported = true;
-                  pbr = pb;
-                }
+                if (pb && pb.supported) pbr = pb;
               } catch {}
 
-              // Extract base color — PBR base color may be white (#ffffff)
-              // so we preserve white. Only skip pure black (0,0,0) which means "unset".
+              const hex = (r, g, b) =>
+                `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+
+              // `supported` is not the same as "filled in".
+              //
+              // Rhino reports physicallyBased().supported === true for RDK material
+              // types whose settings live in the RDK document rather than on the
+              // ON_Material — Plaster, Gem, Paint and friends — but leaves the PBR view
+              // itself zeroed: baseColor (0,0,0), roughness 0, metalness 0. Taken at
+              // face value that reads as a black mirror, and the colour rule below then
+              // discarded (0,0,0) as unset and substituted Rhino's white default. That
+              // is how the near-black "Veilhan black" plaster on this file's figures
+              // arrived as white paint — the furthest possible miss from #050505.
+              //
+              // What Rhino writes for those materials is the simulated legacy set, so an
+              // all-zero baseColor means "read the legacy fields instead". A genuinely
+              // black PBR material is not harmed: its diffuseColor is black too, and the
+              // legacy branch keeps any value at or above (3,3,3).
               let mColor = null;
-              if (isPbrSupported && pbr) {
+              let isPbrSupported = false;
+              if (pbr) {
                 try {
                   const bc = pbr.baseColor;
                   if (bc) {
                     const r = Math.round((bc.r ?? bc.R ?? 0) * 255);
                     const g = Math.round((bc.g ?? bc.G ?? 0) * 255);
                     const b = Math.round((bc.b ?? bc.B ?? 0) * 255);
-                    const isUnset = r < 3 && g < 3 && b < 3;
-                    if (!isUnset) mColor = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+                    if (r || g || b) { isPbrSupported = true; mColor = hex(r, g, b); }
                   }
                 } catch {}
-              } else {
+              }
+              if (!isPbrSupported) {
                 try {
                   const dc = m.diffuseColor;
                   if (dc) {
@@ -883,7 +952,7 @@ export async function preprocess3dm(file, skipLayerParse) {
                     const b = dc.b ?? dc.B ?? 0;
                     // Only skip black (truly unset — Rhino default color)
                     const isUnset = r < 3 && g < 3 && b < 3;
-                    if (!isUnset) mColor = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+                    if (!isUnset) mColor = hex(r, g, b);
                   }
                 } catch {}
               }
@@ -902,39 +971,61 @@ export async function preprocess3dm(file, skipLayerParse) {
                 } catch {}
               }
 
-              // Extract roughness:
-              // Rhino Physically Based materials store roughness DIRECTLY in reflectionGlossiness
-              // (0.0 = smooth, 1.0 = rough) — do NOT invert.
-              // Legacy Blinn-Phong materials store "glossiness" (inverse) there, but PBR is far more common.
+              // Roughness and metalness.
+              //
+              // For a Physically Based material, reflectionGlossiness holds roughness
+              // directly — not its inverse. Checked against every material in the sample
+              // house whose PBR view is filled in, where it equals pbr.roughness to the
+              // digit (iron .331, concrete .900, wood .830, aluminium .353, grass 1.000).
+              //
+              // A Custom material (rcm-basic-material) leaves it at 0 and keeps its real
+              // settings in the RDK parameters, where Rhino's editor exposes two separate
+              // controls that are easy to confuse:
+              //
+              //   Reflection polish  (polish-amount)  how SHARP the reflection is
+              //   Gloss finish       (shine)          how STRONG the highlight is
+              //
+              // Only the first is roughness. Reading `shine` as roughness renders a wall
+              // set to "Gloss finish 2%, Reflection polish 100%" — a matte red with a
+              // crisp sheen — as flatly matte, losing the sheen entirely. Every Custom
+              // material in both sample files is polish 1.0, so they are all smooth, the
+              // tinted glass included; its low gloss says nothing about its finish.
+              //
+              // `shine` has no home in metal/roughness: it is specular intensity, which
+              // would be specularIntensity on a physical material rather than either of
+              // these two. Left out rather than approximated.
+              //
+              // Metalness comes from `reflectivity`, the one value that says "this
+              // mirrors its surroundings". `shine` used to feed it, which is a category
+              // error — gloss describes the highlight, not whether the surface is a
+              // conductor — and it made every glossy plastic and painted wall metallic.
+              const clamp01 = v => Math.min(Math.max(v, 0), 1);
+              const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
               let mRoughness = 0.5;
-              if (isPbrSupported && pbr) {
+              let mMetalness = 0.0;
+              if (rdkFinish) {
+                mRoughness = rdkFinish.roughness;
+                mMetalness = rdkFinish.metalness;
+              } else if (isPbrSupported && pbr) {
                 try {
                   const r = pbr.roughness;
                   if (typeof r === 'number' && r >= 0 && r <= 1) mRoughness = r;
                 } catch {}
-              } else {
-                try {
-                  const rg = m.reflectionGlossiness;
-                  if (typeof rg === 'number' && rg >= 0 && rg <= 1) mRoughness = rg;
-                } catch {}
-              }
-
-              // Metalness via shine intensity — shine=255 → metalness=1.0
-              let mMetalness = 0.0;
-              if (isPbrSupported && pbr) {
                 try {
                   const met = pbr.metallic;
                   if (typeof met === 'number' && met >= 0 && met <= 1) mMetalness = met;
                 } catch {}
               } else {
                 try {
-                  const shine = m.shine;
-                  if (typeof shine === 'number' && shine > 0) mMetalness = Math.min(shine / 255, 1.0);
-                  // PBR materials sometimes expose reflectivity directly
-                  if (mMetalness < 0.01) {
-                    const ref = m.reflectivity;
-                    if (typeof ref === 'number' && ref > 0) mMetalness = Math.min(ref, 1.0);
+                  const polish = num(rdk?.params?.['polish-amount']);
+                  if (polish !== null) {
+                    mRoughness = 1 - clamp01(polish);
+                  } else {
+                    const rg = num(m.reflectionGlossiness);
+                    if (rg !== null && rg >= 0 && rg <= 1) mRoughness = rg;
                   }
+                  const refl = num(rdk?.params?.reflectivity) ?? num(m.reflectivity) ?? 0;
+                  if (refl > 0) mMetalness = clamp01(refl);
                 } catch {}
               }
 
@@ -954,6 +1045,11 @@ export async function preprocess3dm(file, skipLayerParse) {
             try { mats.delete(); } catch {}
           }
         } catch (me) { console.warn('[pre] material table parse err:', me); }
+        // Object-level materials need these too. Rhino3dmLoader builds those itself and
+        // leaves roughness/metalness at the MeshPhysicalMaterial defaults for anything
+        // that is not a filled-in PBR material, so postProcessModel re-applies the
+        // values parsed here, keyed by the object's own materialIndex.
+        S.parsedMaterials = matLookup;
 
         const layers = doc.layers();
         for (let i = 0; i < layers.count; i++) {
@@ -2271,6 +2367,44 @@ export function postProcessModel(model, addEdgesFlag, colorsAreSRGBStoredAsLinea
         }
       }
     }
+    // Rhino3dmLoader builds an object's own material and sets roughness/metalness
+    // ONLY from a filled-in PBR view. Everything else — every Custom material, and
+    // every RDK type whose PBR view Rhino leaves empty — keeps MeshPhysicalMaterial's
+    // defaults of roughness 1, metalness 0, which is why a wall set to "Reflection
+    // polish 100%, Reflectivity 8%" arrived flatly matte.
+    //
+    // The values parsed out of the RDK content are the authority, so they are applied
+    // here, before materialColor is captured and before the shaded/rendered clones are
+    // taken, so every downstream copy inherits them. Colour is left alone: the loader
+    // already reads diffuseColor correctly for these, and materialColor below is what
+    // rendered mode uses.
+    //
+    // Layer materials reach the same values by a different route (parsedLayers[].
+    // customMaterial), so an object and its layer agree.
+    const objMatIdx = child.userData?.attributes?.materialIndex;
+    const objMats = Array.isArray(child.material) ? child.material : [child.material];
+    const objMatSrc = (S.parsedMaterials && typeof objMatIdx === 'number' && objMatIdx >= 0)
+      ? S.parsedMaterials[objMatIdx] : null;
+    for (const mt of objMats) {
+      if (!mt) continue;
+      if (objMatSrc) {
+        if (mt.roughness !== undefined) mt.roughness = objMatSrc.roughness;
+        if (mt.metalness !== undefined) mt.metalness = objMatSrc.metalness;
+        // Tells the display modes that a roughness of 0 came from the file and is
+        // meant, so their "near-zero means unset" fallback leaves it alone.
+        mt.userData.__roughnessFromFile = true;
+        mt.needsUpdate = true;
+      } else if (mt.name === DEFAULT_MATERIAL_NAME) {
+        // An object with nothing assigned gets Rhino's Default material, which is
+        // white plaster — matte and not a conductor. Rhino3dmLoader substitutes a
+        // MeshStandardMaterial at metalness 0.8, so every unassigned object in the
+        // model rendered as brushed metal. Matches RDK_TYPE_FINISH's plaster entry,
+        // which is the same material by another name.
+        if (mt.roughness !== undefined) mt.roughness = 1.0;
+        if (mt.metalness !== undefined) mt.metalness = 0.0;
+        mt.needsUpdate = true;
+      }
+    }
     if (child.material?.color) child.userData.materialColor = child.material.color.clone();
     fixMaterialTransparency(child.material);
     child.userData.originalMaterial = child.material.clone();
@@ -2480,6 +2614,7 @@ export async function handleFile(file, rhinoLoader, gltfLoader, fileHandle = nul
 
   resetSettingsToDefault();
   clearCurrentModel();
+  S.parsedMaterials = null;   // repopulated by preprocess3dm on the .3dm path only
   S.modelUnit = 'Unknown';
   showLoading('Reading file…');
   document.getElementById('empty-state')?.classList.add('hidden');
@@ -2618,6 +2753,9 @@ export async function loadGeometryFromGLB(glbBuffer, fileName, fileSize) {
   setToolbarModelState(true);
   
   const extractEdges = document.getElementById('chk-edges-panel')?.checked ?? true;
+  // No Rhino material table on this path; make sure a previously opened .3dm's
+  // does not leak onto these objects, which carry a materialIndex of their own.
+  S.parsedMaterials = null;
   // .rhv packages embed a GLB — colors are already linear, so skip the
   // 3dm-specific sRGB→linear conversion (would otherwise darken the scene
   // on reopen and the brightness wouldn't match the original 3dm load).

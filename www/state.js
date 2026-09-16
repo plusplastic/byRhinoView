@@ -34,6 +34,9 @@ export const S = {
 
   // ── Layers ───────────────────────────────────────────────────────────────
   parsedLayers:    [],
+  // 3dm material table as parsed from the file, keyed by table index. Null for any
+  // format that has no Rhino material table to read.
+  parsedMaterials: null,
   layerNodeByIndex: {},
 
   // ── Interaction ──────────────────────────────────────────────────────────

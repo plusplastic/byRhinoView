@@ -619,7 +619,13 @@ export function applyDisplayMode() {
         // for a mirror — except on metal and glass, where a mirror finish is the
         // whole point and the floor would turn chrome into pewter and a window into
         // frosted glass.
+        //
+        // Skipped once the loader has read a roughness out of the file, because then
+        // zero is an answer rather than a gap: a Rhino Custom material at "Reflection
+        // polish 100%" really is polished, and nudging it to 0.4 put the flat look
+        // straight back that reading the RDK parameters had just removed.
         if (m.roughness !== undefined && m.roughness < 0.05
+            && !m.userData.__roughnessFromFile
             && !(m.metalness > 0.9) && !(m.transmission > 0)) m.roughness = 0.4;
         if (m.metalness === undefined) m.metalness = 0.0;
         m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1;
@@ -1245,8 +1251,13 @@ function reconcileTransmission(mat) {
  * fresh material rather than a neutered clone of the object's own: the point is
  * that nothing of the old material survives.
  */
+// Rhino's Default material, which is what a layer with nothing assigned offers and
+// what an object detached by ByLayer falls back to. In Rhino that material is white
+// plaster, so it is matte — roughness 1, not the 0.5 half-gloss this used to build.
+// Same values as the plaster entry the .3dm material parser uses, because it is the
+// same material.
 function defaultLayerMaterial() {
-  return new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.0 });
+  return new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 1.0, metalness: 0.0 });
 }
 
 /** Whether an edited material asks for something only MeshPhysicalMaterial has. */
