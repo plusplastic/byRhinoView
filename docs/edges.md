@@ -69,14 +69,16 @@ it as a `.rhv` with **Save edges from Brep topology** ticked.
 ## Large models
 
 Calculating edges from a mesh is the slowest part of opening a file, so if a model would
-need a lot of it, byRhinoView opens with edges switched off and tells you so.
+need a lot of it, byRhinoView opens with edges switched off and tells you so. Only the
+geometry that actually needs calculating counts towards that decision — a model whose
+edges are all exact opens with them showing however large it is, because there is
+nothing to calculate. That is true of a `.3dm` of Breps and of a `.rhv` exported with
+**Save edges from Brep topology** alike.
 
-Turn **Edges** back on under Settings → Visibility whenever you want them. The
-calculation runs then, with a progress indicator, and the result stays for the rest of
-the session. Objects that already carried exact edges appear immediately.
-
-This is also why a `.rhv` exported with **Save edges from Brep topology** opens with its
-edges already showing however large the model is: nothing needs to be calculated.
+Turn **Edges** back on under Settings → Visibility whenever you want them. Only the
+objects that have no edges yet are calculated, behind a progress indicator; anything
+already holding exact edges simply appears. The result stays for the rest of the
+session.
 
 ## Quick answers
 
