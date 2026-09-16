@@ -9,7 +9,7 @@ model, and what the **Edge Angle** slider actually does.
 | | Exact edges | Computed edges |
 |---|---|---|
 | **Come from** | Rhino's own surface boundaries | The triangle mesh |
-| **Used for** | Breps, extrusions, polysurfaces | SubD, meshes, anything from STL / 3MF / GLB / STEP |
+| **Used for** | Breps, extrusions, polysurfaces | Meshes, SubD, anything from STL / 3MF / GLB / STEP |
 | **Accuracy** | Follows the true curve at any zoom | Follows the tessellation |
 | **Edge Angle slider** | Filters them (exported files only) | Decides which ones exist |
 
@@ -39,9 +39,12 @@ same as it would for an STL.
 **Everything else (STL, 3MF, GLB, STEP/IGES)** — There are no surfaces in these formats,
 so every edge is computed from the mesh using the Edge Angle threshold.
 
-**Rhino Mesh and point-cloud objects get no edges at all.** A mesh has no surface
-boundaries — only its triangulation — so outlining it produces noise rather than a
-shape. This is deliberate, and it applies whatever format the mesh arrived in.
+**Rhino Mesh objects** are computed like any other mesh, using the Edge Angle
+threshold. On faceted geometry — a massing study, a block model — that gives you the
+same crisp outline a Brep would. On a dense scan or an imported tree it can look busy;
+raise Edge Angle until only the edges you want survive.
+
+**Point clouds get no edges**, since there are no triangles to find an angle between.
 
 ## The Edge Angle slider
 
@@ -83,10 +86,14 @@ the Edge Angle slider can thin them out. With it off, the `.rhv` has no edges of
 and they are rebuilt from the mesh, which looks coarser than the same model opened as a
 `.3dm`.
 
-**One object has no outline and the rest do.** It is probably a Rhino Mesh, or a SubD
-whose surface is too smooth for the current Edge Angle. Check the object type in the
-Properties panel.
+**One object has no outline and the rest do.** Its surface is probably too smooth for
+the current Edge Angle — common on SubD and on scanned or sculpted meshes. Lower the
+slider until it appears.
 
 **Turning Edges on did nothing.** Fixed in v1.0.1. Earlier versions could only show
 edges that already existed, so on a model whose edges had to be calculated the switch
 had no effect.
+
+**Mesh objects used to have no outlines at all.** Changed in v1.0.2. They are now
+outlined like any other mesh, using the Edge Angle threshold. If a dense one looks
+busy, raise the slider rather than switching edges off.

@@ -275,15 +275,18 @@ object follows its layer colour.
 `3DMLoader` spells it (`"Brep"`, `"Extrusion"`, `"Surface"`, `"Mesh"`, `"SubD"`,
 `"Curve"`, `"Point"`, `"PointSet"`, `"InstanceReference"`) so that a `.rhv` and a
 directly-opened `.3dm` agree. The viewer uses it to decide whether dihedral edge
-extraction is worth running: `Mesh`, `PointSet` and `PointCloud` are excluded,
-because their tessellation *is* their geometry and a threshold pass over an
-imported tree or a scanned terrain yields noise, not an outline. `SubD` is **not**
-excluded — Rhino generates its tessellation from a controlled cage, so creases and
-boundaries produce genuine sharp angles.
+extraction can run at all: only `PointSet` and `PointCloud` are excluded, having no
+triangles to find an angle between.
 
-Omitting `objectType` is safe but pessimistic: the viewer treats unknown geometry
-as eligible, which is the right default for the mesh-only formats it also opens
-(STL, 3MF, GLB, STEP/IGES) where dihedral extraction is the only edge source.
+`Mesh` used to be excluded too, on the grounds that a threshold pass over an
+imported tree or a scanned terrain yields noise rather than an outline. That is an
+argument for a control, not for an exclusion — and it left a mesh building outlined
+when it arrived as an STL and bare when it arrived in a `.3dm`. Mesh objects are
+eligible as of viewer 1.0.2, with the Edge Angle slider governing them.
+
+Omitting `objectType` is safe: the viewer treats unknown geometry as eligible, which
+is the right default for the mesh-only formats it also opens (STL, 3MF, GLB,
+STEP/IGES) where dihedral extraction is the only edge source.
 
 **5.3b — Textures.** Images must be embedded as `bufferView`s (never external
 URIs — the package has to stay self-contained) and must be `image/png` or
@@ -520,9 +523,9 @@ Two further constraints:
   may legitimately mix exact Brep edges with SubD edges the viewer still derives.
 - **Do not write edges for `Mesh` objects.** They have no topology to read, so the
   only thing a writer could ship is a dihedral pass — the one case where edge data
-  can exceed the geometry it describes. The viewer will not derive them either
-  (see `objectType` in §5.3), so a `Mesh` object is simply drawn without an
-  outline, matching how it reads in Rhino.
+  can exceed the geometry it describes, and a threshold baked in at export rather
+  than left to the reader. The viewer derives them itself instead, on demand and at
+  whatever Edge Angle the user has set (see `objectType` in §5.3).
 - **`SubD` edges come from the control net,** read via `SubD.Edges` and evaluated
   on the limit surface with `SubDEdge.ToNurbsCurve()` — not from
   `ControlNetLine`, which would cut straight across a smoothly interpolated edge.
