@@ -28,7 +28,7 @@ const LEGACY_MIN_SCHEMA   = 3;
 // Provenance only — never drives behaviour. Mirrors package.json and the version
 // tag in index.html. That tag is also what the Rhino plugin's ShellUpdater parses to
 // decide whether a published viewer-shell.html is newer, so bump all three together.
-const APP_VERSION         = '1.0.2';
+const APP_VERSION         = '1.0.3';
 
 // Tagged so the loadSession catch can show the specific "update byRhinoView"
 // message instead of the generic corrupt-file alert.
