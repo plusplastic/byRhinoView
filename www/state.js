@@ -219,12 +219,15 @@ export const S = {
   clipFlipped:               false,
   clippingCapEnabled:        false,
   clippingCapColor:          '#000000',
+  clippingCurveEnabled:      false,   // Draw the outline where the plane cuts the model
+  clippingCurveColor:        '#ffffff',
   clipGridVisible:           true,  // Show/hide the clipping-plane grid widget (+ rotation arcs)
   clipGizmoVisible:          true,  // Show/hide the move (translate) widget
   clipGridScale:             1.0,   // Grid size multiplier driven by the panel slider
   clippingGridBaseSize:      50,    // Model-derived base grid half-size, set in setupClippingHelper
   capStencilScene:           null,
   capMesh:                   null,
+  sectionCurve:              null,   // THREE.LineSegments of the plane × model intersection
 
   // ── Gumball ──────────────────────────────────────────────────────────────
   gumballActive:             false,

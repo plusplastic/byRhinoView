@@ -41,6 +41,7 @@ import {
 import { initPenInput } from './pen-input.js';
 import { onPointerDown, clearSelection, updatePropertiesPanel, addSelectionOutline, setupGumballHelper, clearGumballHelper, ensureOriginalTransform } from './selection.js';
 import { buildClippingCap, destroyClippingCap, setClippingCapEnabled, setClippingCapColor, updateClippingCapPose } from './clip-cap.js';
+import { buildClippingCurve, destroyClippingCurve, setClippingCurveEnabled, setClippingCurveColor, updateClippingCurve } from './clip-curve.js';
 
 // Notes UI is loaded lazily so the rest of the app boots even if the user
 // never opens a note. The animate loop reads the populated reference.
@@ -2237,9 +2238,11 @@ function bindUI() {
         setupClippingHelper();
       }
       if (S.clippingCapEnabled) buildClippingCap();
+      if (S.clippingCurveEnabled) buildClippingCurve();
     } else {
       deactivateClippingHelper();
       destroyClippingCap();
+      destroyClippingCurve();
     }
     updateToolsDropdownActiveState();
   }
@@ -2255,9 +2258,11 @@ function bindUI() {
       }
       setupClippingHelper();
       if (S.clippingCapEnabled) buildClippingCap();
+      if (S.clippingCurveEnabled) buildClippingCurve();
     } else {
       deactivateClippingHelper();
       destroyClippingCap();
+      destroyClippingCurve();
     }
   }
   window.setClippingActive = setClippingActive;
@@ -2458,6 +2463,27 @@ function bindUI() {
   // Coloris picks up 'coloris:pick' on the element
   document.getElementById('clip-cap-color')?.addEventListener('coloris:pick', e => {
     setClippingCapColor(e.detail.color);
+    e.target.style.background = e.detail.color;
+  });
+
+  // ── Section curve toggle ──
+  document.getElementById('btn-clip-curve-toggle')?.addEventListener('click', () => {
+    const on = !S.clippingCurveEnabled;
+    setClippingCurveEnabled(on);
+    const btn = document.getElementById('btn-clip-curve-toggle');
+    if (btn) { btn.classList.toggle('active', on); btn.textContent = on ? t('clip.on') : t('clip.off'); }
+  });
+
+  // ── Section curve color ──
+  document.getElementById('clip-curve-color')?.addEventListener('input', e => {
+    const hex = e.target.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      setClippingCurveColor(hex);
+      e.target.style.background = hex;
+    }
+  });
+  document.getElementById('clip-curve-color')?.addEventListener('coloris:pick', e => {
+    setClippingCurveColor(e.detail.color);
     e.target.style.background = e.detail.color;
   });
 
@@ -3428,14 +3454,19 @@ function animate() {
   // Render arc overlay scene on top — no clipping planes active.
   // If cap fill is on, clearStencil() before this render so stencil twins (renderOrder 0)
   // write their values before the cap plane (renderOrder 1) reads them, all in one pass.
+  // The section curve (renderOrder 2) shares the same fresh depth buffer — its own
+  // depth pre-pass is what hides it behind the model from the kept side.
   if ((S.clippingEnabled || S.gumballActive) && S.arcOverlayScene && S.arcOverlayScene.children.length > 0) {
     const savedPlanes = S.renderer.clippingPlanes;
     S.renderer.clippingPlanes = [];           // disable clipping for overlay
     S.renderer.autoClear = false;             // don't clear what composer already drew
-    if (S.clippingEnabled && S.clippingCapEnabled && S.capMesh) {
-      updateClippingCapPose();                // keep cap glued to the clip plane (any move path)
+    const capOn   = S.clippingEnabled && S.clippingCapEnabled   && S.capMesh;
+    const curveOn = S.clippingEnabled && S.clippingCurveEnabled && S.sectionCurve;
+    if (capOn) updateClippingCapPose();       // keep cap glued to the clip plane (any move path)
+    if (curveOn) updateClippingCurve();       // no-op unless the plane actually moved
+    if (capOn || curveOn) {
       S.renderer.clearStencil();              // fresh stencil for cap fill this frame
-      S.renderer.clearDepth();                // fresh depth for the cap's depth pre-pass
+      S.renderer.clearDepth();                // fresh depth for the depth pre-passes
     }
     S.renderer.render(S.arcOverlayScene, S.camera);
     S.renderer.autoClear = true;              // restore
