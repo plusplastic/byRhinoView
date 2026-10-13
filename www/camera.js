@@ -1,11 +1,25 @@
 import * as THREE from 'three';
 import { S } from './state.js';
 
+// The viewport's aspect ratio, never NaN.
+//
+// window.innerWidth / window.innerHeight is 0/0 while the page lays out in a
+// hidden or zero-sized frame, and that NaN does not stay local: it reaches the
+// lens→fov conversion, from there the near/far planes, and from there the
+// projection matrix — at which point the scene is fully loaded and draws
+// nothing at all. updateAdaptiveClipping() cannot undo it either, since every
+// comparison against NaN is false (see the guard there). A square frame for a
+// viewport that has no shape yet costs nothing: the next resize recomputes it.
+export function viewAspect() {
+  const w = window.innerWidth, h = window.innerHeight;
+  return (w > 0 && h > 0) ? w / h : 1;
+}
+
 export function switchToOrtho() {
   if (S.twoPointActive) disableTwoPoint();
   const dist   = S.perspCamera.position.distanceTo(S.controls.target);
   const h      = dist * Math.tan(S.perspCamera.fov * Math.PI / 360);
-  const aspect = window.innerWidth / window.innerHeight;
+  const aspect = viewAspect();
   S.orthoCamera.left   = -h * aspect;
   S.orthoCamera.right  =  h * aspect;
   S.orthoCamera.top    =  h;
@@ -299,7 +313,15 @@ export function fitCameraToBox(box, preserveView = false, animate = false) {
   const size   = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
   const fov    = S.camera.isPerspectiveCamera ? S.camera.fov : 45;
-  const dist   = Math.abs(maxDim / 2 / Math.tan(fov * Math.PI / 360)) * 1.5;
+
+  // Both inputs are sanitized before they can reach a clipping plane. A degenerate
+  // box (one point, or a model of a single flat object) makes maxDim 0, and a fov
+  // that arrived NaN from a zero-sized viewport makes the whole expression NaN —
+  // either way near/far end up unusable and the viewport goes blank with the model
+  // loaded, which reads as a failed load rather than a bad camera.
+  const extent  = Number.isFinite(maxDim) && maxDim > 0 ? maxDim : 1;
+  const safeFov = Number.isFinite(fov) && fov > 0 && fov < 180 ? fov : 45;
+  const dist    = Math.abs(extent / 2 / Math.tan(safeFov * Math.PI / 360)) * 1.5;
 
   const minNear = Math.max(0.001, dist * 0.0005);
   const maxFar  = dist * 50;
@@ -380,7 +402,18 @@ export function updateAdaptiveClipping() {
   const near = Math.max(d - r * 1.05, r * 1e-3, 1e-4);
   const far  = d + fr;
 
-  if (Math.abs(cam.near - near) > near * 1e-3 || Math.abs(cam.far - far) > far * 1e-3) {
+  // Never write a NaN, and never leave one in place. A NaN near plane is not a
+  // bad frame, it is a permanent one: it makes the projection matrix NaN so the
+  // scene vanishes, and the "has it moved enough to be worth updating" test below
+  // is false against NaN whichever side it sits on, so the plane that went bad
+  // would never be replaced by the good value computed on the next frame. Forcing
+  // the write when what the camera currently holds is not finite is what lets a
+  // single bad frame — a zero-sized viewport during layout, a model whose bounds
+  // came out NaN — recover by itself.
+  if (!Number.isFinite(near) || !Number.isFinite(far)) return;
+
+  if (!Number.isFinite(cam.near) || !Number.isFinite(cam.far)
+      || Math.abs(cam.near - near) > near * 1e-3 || Math.abs(cam.far - far) > far * 1e-3) {
     cam.near = near;
     cam.far  = far;
     cam.updateProjectionMatrix();

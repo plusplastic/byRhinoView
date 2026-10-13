@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { S } from './state.js';
 import { applyDisplayMode, applyCustomToMaterial } from './display.js';
-import { switchToPersp, getCustomViews } from './camera.js';
+import { switchToPersp, getCustomViews, viewAspect } from './camera.js';
 import { updateSliderFill, isPageVisuallyDark, showToast } from './helpers.js';
 import { History } from './history.js';
 import { t } from './i18n.js';
@@ -281,7 +281,7 @@ async function buildSessionBuffer(customFileName = null) {
       cameraLens:         parseFloat(document.getElementById('sl-camera-fov')?.value ?? 50),
       cameraFov:          (() => {
         const lens = parseFloat(document.getElementById('sl-camera-fov')?.value ?? 50);
-        const aspect = window.innerWidth / window.innerHeight;
+        const aspect = viewAspect();
         const vFovRad = 2 * Math.atan(18 / (aspect * lens));
         return (vFovRad * 180) / Math.PI;
       })(),
@@ -1017,7 +1017,7 @@ export async function loadSession(file, fileHandle = null) {
       if (s.cameraLens !== undefined) {
         setSlider('sl-camera-fov',    'sl-camera-fov-val',  s.cameraLens,       'mm');
       } else if (s.cameraFov !== undefined) {
-        const aspect = window.innerWidth / window.innerHeight;
+        const aspect = viewAspect();
         const vFovRad = (s.cameraFov * Math.PI) / 360;
         const lens = 18 / (aspect * Math.tan(vFovRad));
         setSlider('sl-camera-fov',    'sl-camera-fov-val',  Math.round(lens),   'mm');

@@ -18,7 +18,7 @@ import { initI18n, setLang, applyI18n, t, currentLang } from './i18n.js';
 import { S } from './state.js';
 import { updateSliderFill, updateAllSliderFills, updateSelectIcon, showLoading, hideLoading, bindSliderDblClickInput, beginSave } from './helpers.js';
 import { setupLights, updateSunLight, updateShadowCasting, addGroundPlane, removeGroundPlane, computeVisibleBoundingBox } from './lighting.js';
-import { switchToOrtho, switchToPersp, switchToTwoPoint, apply2PointConstraints, installTwoPointDragHandler, setViewPreset, setWalkthroughMode, triggerCameraTransition, fitCameraToBox, fitCameraToObject, fitCameraToSelected, saveCustomView, renderNamedViewsUI, updateAdaptiveClipping } from './camera.js';
+import { switchToOrtho, switchToPersp, switchToTwoPoint, apply2PointConstraints, installTwoPointDragHandler, setViewPreset, setWalkthroughMode, triggerCameraTransition, fitCameraToBox, fitCameraToObject, fitCameraToSelected, saveCustomView, renderNamedViewsUI, updateAdaptiveClipping, viewAspect } from './camera.js';
 import { applySceneBackground, applyFileBackground, applyDisplayMode, applyLayerColorsToModel, recreateAllEdges, setEdgeAngleUniform, findMeshesNeedingEdges, countTriangles, buildEdgesFor } from './display.js';
 import { renderLayerUI, updateLayerVisibility } from './layers.js';
 import { createAnnotationSprites } from './annotations.js';
@@ -271,7 +271,7 @@ function init() {
   S.arcOverlayScene = new THREE.Scene();
   S.arcOverlayScene.background = null;
 
-  S.perspCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+  S.perspCamera = new THREE.PerspectiveCamera(45, viewAspect(), 0.1, 10000);
   S.perspCamera.up.set(0, 0, 1);
   S.perspCamera.position.set(100, -100, 100);
   S.perspCamera.layers.enable(1);  // layer 1 = annotations (excluded from AO)
@@ -3581,7 +3581,7 @@ export function updateLensCamera() {
   const lens = parseFloat(fovSlider.value);
   if (fovValEl) fovValEl.textContent = Math.round(lens) + 'mm';
   
-  const aspect = window.innerWidth / window.innerHeight;
+  const aspect = viewAspect();
   const vFovRad = 2 * Math.atan(18 / (aspect * lens));
   const fov = (vFovRad * 180) / Math.PI;
   
@@ -3593,7 +3593,7 @@ export function updateLensCamera() {
 
 // ── Window resize ──────────────────────────────────────────────────────────
 function onWindowResize() {
-  const aspect = window.innerWidth / window.innerHeight;
+  const aspect = viewAspect();
   S.perspCamera.aspect = aspect;
   S.perspCamera.updateProjectionMatrix();
   if (S.camera.isOrthographicCamera) {
