@@ -13,6 +13,7 @@ node_modules/
 
 # Scratch / temp
 scratch/
+doc_tmp/
 
 # Sample/ test
 sample_3dm/
