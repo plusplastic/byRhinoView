@@ -12,6 +12,7 @@ A premium, lightweight, zero-install 3D Rhino & CAD Web Viewer designed for seam
 * **Premium Shading Modes:** Interactive shaded, wireframe, technical sketch, rendered, and beautiful **Arctic (Ambient Occlusion style)** modes.
 * **Smart Session Management:** Save your entire viewing session—including camera perspectives, custom colors, layer visibilities, measurements, and lights—into a single `.rhv` package.
 * **Export Package (HTML):** Export the viewer **and** the current model as one self-contained, offline `.html` file. Double-click to open in any browser—no server, plugin, or internet required. Ideal for sending models to clients for review.
+* **View in AR:** Stand the model on a real table or floor through the phone's camera — the native AR view in the Android app (ARCore), or AR Quick Look straight from Safari on iPhone/iPad. The button is hidden where no AR runtime exists (desktop, Android Chrome).
 * **Named Views:** Save custom camera viewpoints and animate transitions seamlessly.
 * **Analysis Tools:** In-app distance/angle measurement utilities with smart vertex snapping, and real-time interactive clipping plane sections.
 * **12-Language Support (i18n):** Automatically adapts to 12 languages matching Rhino 3D (en, ko, fr, de, es, it, ja, zh-CN, zh-TW, pt-BR, cs, pl).
@@ -32,6 +33,7 @@ byRhinoView/
 │   ├── tools.js             # Distance, Angle, Clipping Plane, & Search Tools
 │   ├── selection.js         # Object Selection & Gumball Helpers
 │   ├── session.js           # Session/Package Importer & Exporter (.rhv + HTML)
+│   ├── ar.js                # View in AR: GLB to the Android app, USDZ to iOS Quick Look
 │   ├── i18n.js              # 12-Language Translation Catalog
 │   ├── viewer-shell.html    # Prebuilt self-contained offline shell (generated)
 │   ├── README.md            # Web Viewer Sub-README

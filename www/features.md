@@ -109,6 +109,18 @@ Customize how your models are displayed using professional viewport modes:
 
 ---
 
+### 9. 🕶️ View in AR / AR로 보기
+* **EN:** The **AR** button in the bottom bar stands the model on a real table or floor through the phone's camera. It first appears sized to fit the view; **Real size** shows it at 1:1. The model goes over in its Rendered-mode materials, upright and in real units.
+  * **Android app:** Native AR view (ARCore). Drag or tap the floor to move the model, pinch to scale, twist to turn. Lit by the room's own light, with reflections of the surroundings and a shadow on the floor. Needs an ARCore-capable phone.
+  * **iPhone / iPad (Safari):** Opens straight from the web in Apple's **AR Quick Look**, no app to install; the model is converted to USDZ in the browser. Use Safari — the in-app browsers of messengers may not open it. An Export Package opened in iPhone Safari gets the button too.
+  * Desktop browsers and Android Chrome do not show the button.
+* **KR:** 하단 툴바의 **AR** 버튼으로 휴대폰 카메라 화면 속 실제 책상이나 바닥 위에 모델을 올려 봅니다. 처음에는 화면에 맞는 크기로 놓이고, **실제 크기** 버튼으로 1:1 크기로 볼 수 있습니다. 모델은 렌더링 모드의 재질 그대로, 똑바로 선 채 실제 단위로 옮겨집니다.
+  * **Android 앱:** 네이티브 AR 화면(ARCore). 끌거나 바닥을 탭해 이동, 두 손가락으로 크기 조절, 비틀어 회전. 실제 방의 조명과 주변 반사를 반영하고 바닥에 그림자가 생깁니다. ARCore 지원 기기에서 동작합니다.
+  * **iPhone / iPad (Safari):** 앱 설치 없이 웹에서 바로 Apple **AR Quick Look**으로 열립니다(모델은 브라우저 안에서 USDZ로 변환). 메신저 앱 내부 브라우저에서는 열리지 않을 수 있으니 Safari를 사용해 주세요. iPhone Safari로 연 Export Package에서도 AR 버튼이 나타납니다.
+  * 데스크톱 브라우저와 Android Chrome에서는 AR 버튼이 표시되지 않습니다.
+
+---
+
 ## ⚖️ Open Source & License / 오픈소스 및 라이선스
 
 ### MIT License / MIT 라이선스 적용

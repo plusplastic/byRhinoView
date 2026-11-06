@@ -58,9 +58,11 @@ async function detectMode() {
   }
   if (cap) return null;      // some other native shell — no AR runtime there
 
-  // Safari on iOS/iPadOS advertises AR Quick Look through rel="ar".
-  const a = document.createElement('a');
-  if (a.relList?.supports?.('ar')) return 'quicklook';
+  // Safari on iOS/iPadOS advertises AR Quick Look through rel="ar". Some other
+  // browsers throw from supports() rather than answer false.
+  try {
+    if (document.createElement('a').relList?.supports?.('ar')) return 'quicklook';
+  } catch { /* no Quick Look */ }
   return null;
 }
 
