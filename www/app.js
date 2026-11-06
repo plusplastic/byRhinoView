@@ -28,6 +28,7 @@ import * as GoogleDrive from './cloud/google-drive.js';
 import * as OneDrive from './cloud/onedrive.js';
 import * as Dropbox from './cloud/dropbox.js';
 import { History } from './history.js';
+import { initAR } from './ar.js';
 import {
   deactivateAllTools, clearMeasurements, renderMeasurementListUI,
   spawnAngleWidget, handleWidgetPointerDown, handleWidgetPointerMove,
@@ -126,6 +127,7 @@ let barContrastFrameCount = 0;
 document.getElementById('loading')?.classList.remove('hidden');
 initThemeSync();
 init();
+initAR();
 animate();
 
 // ── Auto-load embedded model (self-contained Export Package HTML) ────────────
